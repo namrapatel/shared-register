@@ -16,11 +16,6 @@ fn handle_client(mut stream: TcpStream, atomic_register: Arc<AtomicRegister>) {
     response.push_str("\r\n");
 
     let mut iter = request.trim().split_whitespace();
-
-    for line in request.lines() {
-        println!("{}", line);
-    }
-
     let command = iter.nth(1).unwrap_or_default();
     println!("Command received: {}", command);
 
@@ -28,11 +23,13 @@ fn handle_client(mut stream: TcpStream, atomic_register: Arc<AtomicRegister>) {
         "/read" => atomic_register.read(),
         "/write" => {
             let value = request.split("\r\n\r\n").nth(1).unwrap_or("new value");
-            let response_string:String = atomic_register.write(String::from(value.trim()))
+            let response_string = atomic_register.write(String::from(value.trim()));
+            response_string
         },
         "/write_with_quorum" => {
             let value = iter.next().unwrap_or("new value");
-            atomic_register.write_with_quorum(String::from(value))
+            let response_string = atomic_register.write_with_quorum(String::from(value));
+            response_string
         },
         _ => String::from("Invalid request"),
     };

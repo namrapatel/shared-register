@@ -21,7 +21,7 @@ yk
 - [ ] Not sure how to implement the Ordering in atomics
 
 #### Tests
-- [ ] Do servers correctly handle messages from clients?
+- [x] Do servers correctly handle messages from clients? 
 - [ ] Do servers correctly send messages to each other? i.e. Does the quorum protocol work?
 - [ ] Can the register handle concurrent read and writes?
 - [ ] Are messages that are sent while a quorum is ongoing buffered? 
