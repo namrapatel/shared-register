@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::{Arc};
+use std::thread;
 use std::time::{Duration, Instant};
 use std::sync::atomic::{AtomicPtr, Ordering};
 
@@ -55,7 +56,7 @@ impl AtomicRegister {
         println!("Server {}: Value received in write_with_quorum: {}", &self.id, value,);
         let mut ack_count = 0;
         let mut responses = HashMap::new();
-        let quorum_size = (self.nodes.len() / 2) + 1;
+        let quorum_size = self.nodes.len() / 2;
     
         for node in &self.nodes {
             let node_port = node.split(":").last().unwrap();
@@ -67,50 +68,42 @@ impl AtomicRegister {
                 let client = reqwest::blocking::Client::new();
                 let response = client
                     .post(&url)
-                    .json(&value)
+                    .body(value.clone())
                     .send()
                     .unwrap()
                     .text()
                     .unwrap();
                 responses.insert(node, response);
+            } else {
+                ack_count += 1;
             }
-            
         }
     
         let timeout_duration = Duration::from_secs(5); // wait for 5 seconds
         let start_time = Instant::now();
     
         loop {
-            let mut updated_responses = HashMap::new();
-    
             for (node, response) in &responses {
                 if response == "ACK" {
                     ack_count += 1;
+                    println!("Received ACK from node: {}", node);
+                } else {
+                    println!("Received response from node {}: {}", node, response);
                 }
-                if ack_count >= quorum_size {
-                    return self.write(value);
-                }
-                let url = format!("http://{}/read", node);
-                let client = reqwest::blocking::Client::new();
-                let response = client
-                    .get(&url)
-                    .send()
-                    .unwrap()
-                    .text()
-                    .unwrap();
-                updated_responses.insert(node.clone(), response);
             }
     
-            responses = updated_responses;
+            if ack_count >= quorum_size {
+                return "ACK".to_string();
+            }
     
             if start_time.elapsed() >= timeout_duration {
                 break;
             }
     
-            std::thread::sleep(Duration::from_millis(100));
+            // Wait for a short time before checking again
+            thread::sleep(Duration::from_millis(100));
         }
     
-        // If we reach here, we did not receive a quorum of responses within the timeout duration
         "ERROR: Quorum not reached".to_string()
     }
 }

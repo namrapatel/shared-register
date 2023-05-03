@@ -24,6 +24,7 @@ fn handle_client(mut stream: TcpStream, atomic_register: Arc<AtomicRegister>) {
         "/write" => {
             let value = request.split("\r\n\r\n").nth(1).unwrap_or("new value");
             let response_string = atomic_register.write(String::from(value.trim()));
+            println!("/write sent: {}", response_string);
             response_string
         },
         "/write_with_quorum" => {
