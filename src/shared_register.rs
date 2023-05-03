@@ -48,6 +48,8 @@ impl AtomicRegister {
         }
 
         loop {
+            let mut updated_responses = HashMap::new();
+
             for (node, response) in &responses {
                 if response == "ack" {
                     ack_count += 1;
@@ -63,8 +65,10 @@ impl AtomicRegister {
                     .unwrap()
                     .text()
                     .unwrap();
-                responses.insert(node, response);
+                updated_responses.insert(node.clone(), response);
             }
+
+            responses = updated_responses;
             std::thread::sleep(Duration::from_millis(100));
         }
     }
