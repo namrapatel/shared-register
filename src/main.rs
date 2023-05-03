@@ -1,6 +1,3 @@
-use std::sync::{Arc, Mutex};
-use std::thread;
-
 mod shared_register;
 mod server;
 
