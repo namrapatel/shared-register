@@ -1,5 +1,6 @@
 use std::sync::{Arc, atomic::{AtomicPtr}};
 use std::thread;
+use std::env;
 
 mod shared_register;
 mod server;
@@ -15,19 +16,21 @@ fn main() {
         .collect();
     let register = Arc::new(AtomicPtr::new(Box::into_raw(Box::new("".to_string()))));
 
-    // TODO: only two servers are started even though the loop is ran 4 times
-    for i in 0..nodes.len() {
-        println!("Entered");
-        let nodes = nodes.clone();
-        let register = register.clone();
-        let atomic_register = Arc::new(AtomicRegister::new(i, nodes.clone(), register.clone()));
-        let port = 8000 + i as u32; // TODO: might be a cleaner way to deal with i here
-        println!("Port: {}", port);
-        thread::spawn(move || {
-            println!("Starting server2");
-            let _server = start_server(port, atomic_register);
-            println!("Server listening on port {}", port);
-        });
-    }
+    let args: Vec<String> = env::args().collect();
+    let port = match args.len() {
+        2 => args[1].parse().unwrap(),
+        _ => {
+            println!("Please provide a port number as an argument");
+            return;
+        }
+    };
 
+    let atomic_register = Arc::new(AtomicRegister::new(port, nodes.clone(), register.clone()));
+    let handle = thread::spawn(move || {
+        println!("Starting server2");
+        let _server = start_server(port, atomic_register);
+        println!("Server listening on port {}", port);
+    });
+    
+    handle.join().unwrap();
 }

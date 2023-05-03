@@ -3,17 +3,15 @@ use std::sync::{Arc};
 use std::time::{Duration, Instant};
 use std::sync::atomic::{AtomicPtr, Ordering};
 
-type NodeId = usize;
-
 #[derive(Clone)]
 pub struct AtomicRegister {
-    id: NodeId,
+    id: u32,
     nodes: Vec<String>,
     register: Arc<AtomicPtr<String>>,
 }
 
 impl AtomicRegister {
-    pub fn new(id: NodeId, nodes: Vec<String>, register: Arc<AtomicPtr<String>>) -> Self {
+    pub fn new(id: u32, nodes: Vec<String>, register: Arc<AtomicPtr<String>>) -> Self {
         Self {
             id,
             nodes,
@@ -24,7 +22,7 @@ impl AtomicRegister {
     pub fn read(&self) -> String {
         let mut register = self.register.load(Ordering::SeqCst);
 
-        // TODO: this should make a read operation not return in so far as there are write operations changing the value
+        // this should make a read operation not return in so far as there are write operations changing the value
         loop {
             let latest_register = self.register.load(Ordering::SeqCst);
             if register == latest_register {
@@ -32,16 +30,16 @@ impl AtomicRegister {
             }
             register = latest_register;
         }
-        unsafe { (*register).clone() }
+
+        // TODO: Should serialize the messages instead of doing shit like this
+        unsafe { (*register).clone().trim_matches('\0').to_string() } 
     }
 
     pub fn write(&self, value: String) -> String {
         println!("Value received in write: {}", value);
         let mut register = self.register.load(Ordering::SeqCst);
         let new_register = AtomicPtr::new(Box::into_raw(Box::new(value)));
-        println!("here");
         loop {
-            println!("here2");
             match self.register.compare_exchange(register, new_register.load(Ordering::SeqCst), Ordering::SeqCst, Ordering::SeqCst) {
                 Ok(_) => break,
                 Err(current_register) => {
@@ -49,28 +47,34 @@ impl AtomicRegister {
                 }
             }
         }
-        println!("here3");
 
         "ACK".to_string()
     }
 
     pub fn write_with_quorum(&self, value: String) -> String {
-        println!("Value received in write_with_quorum: {}", value);
+        println!("Server {}: Value received in write_with_quorum: {}", &self.id, value,);
         let mut ack_count = 0;
         let mut responses = HashMap::new();
         let quorum_size = (self.nodes.len() / 2) + 1;
     
         for node in &self.nodes {
-            let url = format!("http://{}/write", node);
-            let client = reqwest::blocking::Client::new();
-            let response = client
-                .post(&url)
-                .json(&value)
-                .send()
-                .unwrap()
-                .text()
-                .unwrap();
-            responses.insert(node, response);
+            let node_port = node.split(":").last().unwrap();
+            let self_id = self.id.clone().to_string();
+            let self_port = self_id.split(":").last().unwrap();
+            if node_port != self_port {
+                println!("Sending write request to node: {}", node);
+                let url = format!("http://{}/write", node);
+                let client = reqwest::blocking::Client::new();
+                let response = client
+                    .post(&url)
+                    .json(&value)
+                    .send()
+                    .unwrap()
+                    .text()
+                    .unwrap();
+                responses.insert(node, response);
+            }
+            
         }
     
         let timeout_duration = Duration::from_secs(5); // wait for 5 seconds

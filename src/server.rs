@@ -20,14 +20,14 @@ fn handle_client(mut stream: TcpStream, atomic_register: Arc<AtomicRegister>) {
     println!("Command received: {}", command);
 
     let response_body = match command {
-        "/read" => atomic_register.read(),
+        "/read" => atomic_register.read(),  
         "/write" => {
             let value = request.split("\r\n\r\n").nth(1).unwrap_or("new value");
             let response_string = atomic_register.write(String::from(value.trim()));
             response_string
         },
         "/write_with_quorum" => {
-            let value = iter.next().unwrap_or("new value");
+            let value = request.split("\r\n\r\n").nth(1).unwrap_or("new value");
             let response_string = atomic_register.write_with_quorum(String::from(value));
             response_string
         },
