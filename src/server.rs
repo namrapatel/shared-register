@@ -9,10 +9,19 @@ fn handle_client(mut stream: std::net::TcpStream, atomic_register: Arc<AtomicReg
     let mut buffer = [0; 1024];
     stream.read(&mut buffer).unwrap();
     let request = String::from_utf8_lossy(&buffer[..]);
-    let response = match request.trim() {
+    let mut iter = request.trim().split_whitespace();
+    let command = iter.next().unwrap();
+    // TODO: test reading string from message
+    let response = match command {
         "/read" => atomic_register.read(),
-        "/write" => atomic_register.write(String::from("new value")),
-        "/write_with_quorum" => atomic_register.write_with_quorum(String::from("new value")),
+        "/write" => {
+            let value = iter.next().unwrap_or("new value");
+            atomic_register.write(String::from(value))
+        },
+        "/write_with_quorum" => {
+            let value = iter.next().unwrap_or("new value");
+            atomic_register.write_with_quorum(String::from(value))
+        },
         _ => String::from("Invalid request"),
     };
     stream.write(response.as_bytes()).unwrap();
