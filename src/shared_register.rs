@@ -39,7 +39,9 @@ impl AtomicRegister {
         println!("Value received in write: {}", value);
         let mut register = self.register.load(Ordering::SeqCst);
         let new_register = AtomicPtr::new(Box::into_raw(Box::new(value)));
+        println!("here");
         loop {
+            println!("here2");
             match self.register.compare_exchange(register, new_register.load(Ordering::SeqCst), Ordering::SeqCst, Ordering::SeqCst) {
                 Ok(_) => break,
                 Err(current_register) => {
@@ -47,6 +49,7 @@ impl AtomicRegister {
                 }
             }
         }
+        println!("here3");
 
         "ACK".to_string()
     }
@@ -81,7 +84,6 @@ impl AtomicRegister {
                     ack_count += 1;
                 }
                 if ack_count >= quorum_size {
-                    // TODO: Send a message to the client that the write was successful
                     return self.write(value);
                 }
                 let url = format!("http://{}/read", node);
