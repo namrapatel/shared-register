@@ -16,7 +16,7 @@ yk
     - I think this is handled by the fact that the node will not be able to respond to the client and the client will timeout and retry the operation
 - [x] What happens if a node goes down while a quorum is ongoing?
     - In this case, the other nodes will have updated their values, but the client will not recieve a response so it may try to resend the operation. This is fine because the operation is idempotent, meaning that it will not change the state of the register if it is applied multiple times.
-- [ ] What happens if many nodes start a quorum at once, is there a way this can lead to deadlock?
+- [ ] What happens if many nodes start a quorum at once, is there a way this can lead to deadlock or split vote?
     - If multiple nodes start a quorum, then the there will still be an order of commits. Its possible that one commit very quickly overwrites another commit, but thats fine according to the requirements.
 - [ ] Not sure how to implement the Ordering in atomics
 

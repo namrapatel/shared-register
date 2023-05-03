@@ -81,6 +81,7 @@ impl AtomicRegister {
                     ack_count += 1;
                 }
                 if ack_count >= quorum_size {
+                    // TODO: Send a message to the client that the write was successful
                     return self.write(value);
                 }
                 let url = format!("http://{}/read", node);
