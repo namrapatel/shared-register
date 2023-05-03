@@ -1,17 +1,19 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use std::sync::atomic::{AtomicPtr, Ordering};
 
 type NodeId = usize;
 
+#[derive(Clone)]
 pub struct AtomicRegister {
     id: NodeId,
     nodes: Vec<String>,
-    register: Arc<Mutex<String>>,
+    register: Arc<AtomicPtr<String>>,
 }
 
 impl AtomicRegister {
-    pub fn new(id: NodeId, nodes: Vec<String>, register: Arc<Mutex<String>>) -> Self {
+    pub fn new(id: NodeId, nodes: Vec<String>, register: Arc<AtomicPtr<String>>) -> Self {
         Self {
             id,
             nodes,
@@ -20,13 +22,31 @@ impl AtomicRegister {
     }
 
     pub fn read(&self) -> String {
-        self.register.lock().unwrap().clone()
+        let mut register = self.register.load(Ordering::SeqCst);
+
+        // TODO: this should make a read operation not return in so far as there are write operations changing the value
+        loop {
+            let latest_register = self.register.load(Ordering::SeqCst);
+            if register == latest_register {
+                break;
+            }
+            register = latest_register;
+        }
+        unsafe { (*register).clone() }
     }
 
     pub fn write(&self, value: String) -> String {
-        let mut register = self.register.lock().unwrap();
-        *register = value.clone();
-        value
+        let mut register = self.register.load(Ordering::SeqCst);
+        let new_register = AtomicPtr::new(Box::into_raw(Box::new(value)));
+        loop {
+            match self.register.compare_exchange(register, new_register.load(Ordering::SeqCst), Ordering::SeqCst, Ordering::SeqCst) {
+                Ok(_) => break,
+                Err(current_register) => {
+                    register = current_register;
+                }
+            }
+        }
+        unsafe { (*register).clone() }
     }
 
     pub fn write_with_quorum(&self, value: String) -> String {

@@ -1,9 +1,9 @@
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc};
 use std::thread;
-
 use std::net::TcpListener;
 use std::io::{Read, Write};
-use crate::shared_register::AtomicRegister; // Import the AtomicRegister from shared_register.rs
+
+use crate::shared_register::AtomicRegister;
 
 fn handle_client(mut stream: std::net::TcpStream, atomic_register: Arc<AtomicRegister>) {
     let mut buffer = [0; 1024];
@@ -19,7 +19,7 @@ fn handle_client(mut stream: std::net::TcpStream, atomic_register: Arc<AtomicReg
     stream.flush().unwrap();
 }
 
-fn start_server(port: u32, atomic_register: Arc<AtomicRegister>) {
+pub fn start_server(port: u32, atomic_register: Arc<AtomicRegister>) {
     let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).unwrap();
     for stream in listener.incoming() {
         match stream {
