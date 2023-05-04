@@ -8,13 +8,14 @@ mod tests {
     use std::time::Duration;
     use reqwest::blocking::Client;
 
+
     use crate::shared_register::AtomicRegister;
     use crate::server::start_server;
     
     #[test]
     fn test_handle_client() {
         let register = Arc::new(AtomicPtr::new(Box::into_raw(Box::new("".to_string()))));
-        let atomic_register = Arc::new(AtomicRegister::new(0, vec!["127.0.0.1:8080".to_string()], register.clone()));
+        let atomic_register = Arc::new(AtomicRegister::new(8080, vec!["127.0.0.1:8080".to_string()], register.clone()));
         thread::spawn(move || {
             start_server(8080, atomic_register.clone());
         });
@@ -31,7 +32,7 @@ mod tests {
     #[test]
     fn test_handle_client_read() {
         let register = Arc::new(AtomicPtr::new(Box::into_raw(Box::new("".to_string()))));
-        let atomic_register = Arc::new(AtomicRegister::new(0, vec!["127.0.0.1:8080".to_string()], register.clone()));
+        let atomic_register = Arc::new(AtomicRegister::new(8080, vec!["127.0.0.1:8080".to_string()], register.clone()));
         thread::spawn(move || {
             start_server(8080, atomic_register.clone());
         });
@@ -50,13 +51,13 @@ mod tests {
         println!("Response from server: {}", read_response);
         assert_eq!(read_response, "test message");
     }
-
+    
     #[test]
     fn test_quorum_protocol() {
         let register = Arc::new(AtomicPtr::new(Box::into_raw(Box::new("".to_string()))));
-        let atomic_register1 = Arc::new(AtomicRegister::new(8081, vec!["127.0.0.1:8081".to_string(), "127.0.0.1:8082".to_string()], register.clone()));
-        let atomic_register2 = Arc::new(AtomicRegister::new(8082, vec!["127.0.0.1:8081".to_string(), "127.0.0.1:8082".to_string()], register.clone()));
-        let atomic_register3 = Arc::new(AtomicRegister::new(8083, vec!["127.0.0.1:8081".to_string(), "127.0.0.1:8082".to_string()], register.clone()));
+        let atomic_register1 = Arc::new(AtomicRegister::new(8081, vec!["127.0.0.1:8081".to_string(), "127.0.0.1:8082".to_string(), "127.0.0.1:8083".to_string()], register.clone()));
+        let atomic_register2 = Arc::new(AtomicRegister::new(8082, vec!["127.0.0.1:8081".to_string(), "127.0.0.1:8082".to_string(), "127.0.0.1:8083".to_string()], register.clone()));
+        let atomic_register3 = Arc::new(AtomicRegister::new(8083, vec!["127.0.0.1:8081".to_string(), "127.0.0.1:8082".to_string(), "127.0.0.1:8083".to_string()], register.clone()));
         thread::spawn(move || {
             start_server(8081, atomic_register1.clone());
         });
@@ -88,8 +89,11 @@ mod tests {
         }).text().unwrap();
         assert_eq!(response3, "test message");
 
-        // handle1.join().unwrap();
-        // handle2.join().unwrap();
+        let response4 = client.get("http://127.0.0.1:8081/read").send().unwrap_or_else(|err| {
+            eprintln!("Error sending request: {}", err);
+            panic!("Failed to send request");
+        }).text().unwrap();
+        assert_eq!(response4, "test message");
     }
 
 }

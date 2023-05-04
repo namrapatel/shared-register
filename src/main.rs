@@ -27,7 +27,6 @@ fn main() {
 
     let atomic_register = Arc::new(AtomicRegister::new(port, nodes.clone(), register.clone()));
     let handle = thread::spawn(move || {
-        println!("Starting server2");
         let _server = start_server(port, atomic_register);
         println!("Server listening on port {}", port);
     });

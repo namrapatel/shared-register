@@ -17,14 +17,12 @@ fn handle_client(mut stream: TcpStream, atomic_register: Arc<AtomicRegister>) {
 
     let mut iter = request.trim().split_whitespace();
     let command = iter.nth(1).unwrap_or_default();
-    println!("Command received: {}", command);
 
     let response_body = match command {
         "/read" => atomic_register.read(),  
         "/write" => {
             let value = request.split("\r\n\r\n").nth(1).unwrap_or("new value");
             let response_string = atomic_register.write(String::from(value.trim()));
-            println!("/write sent: {}", response_string);
             response_string
         },
         "/write_with_quorum" => {
@@ -40,11 +38,10 @@ fn handle_client(mut stream: TcpStream, atomic_register: Arc<AtomicRegister>) {
     stream.flush().unwrap();
 }
 
-// TODO: Need ot use Arc here because we need different threads of operations to see the same AtomicRegister
+// Need ot use Arc here because we need different threads of operations to see the same AtomicRegister
 pub fn start_server(port: u32, atomic_register: Arc<AtomicRegister>) {
-    println!("Starting server from within server.rs on port {}", port);
+    println!("Starting server on port {}", port);
     let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).unwrap();
-    println!("Server listening on port {}", port);
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {

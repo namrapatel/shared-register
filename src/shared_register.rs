@@ -53,7 +53,6 @@ impl AtomicRegister {
     }
 
     pub fn write_with_quorum(&self, value: String) -> String {
-        println!("Server {}: Value received in write_with_quorum: {}", &self.id, value,);
         let mut ack_count = 0;
         let mut responses = HashMap::new();
         let quorum_size = self.nodes.len() / 2;
@@ -63,7 +62,6 @@ impl AtomicRegister {
             let self_id = self.id.clone().to_string();
             let self_port = self_id.split(":").last().unwrap();
             if node_port != self_port {
-                println!("Sending write request to node: {}", node);
                 let url = format!("http://{}/write", node);
                 let client = reqwest::blocking::Client::new();
                 let response = client
@@ -74,11 +72,9 @@ impl AtomicRegister {
                     .text()
                     .unwrap();
                 responses.insert(node, response);
-            } else {
-                ack_count += 1;
-            }
+            } 
         }
-    
+
         let timeout_duration = Duration::from_secs(5); // wait for 5 seconds
         let start_time = Instant::now();
     
@@ -93,6 +89,7 @@ impl AtomicRegister {
             }
     
             if ack_count >= quorum_size {
+                self.write(value);
                 return "ACK".to_string();
             }
     
