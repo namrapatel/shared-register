@@ -38,7 +38,7 @@ fn handle_client(mut stream: TcpStream, atomic_register: Arc<AtomicRegister>) {
     stream.flush().unwrap();
 }
 
-// Need ot use Arc here because we need different threads of operations to see the same AtomicRegister
+// We use Arc here because we need different threads of operations to see the same AtomicRegister
 pub fn start_server(port: u32, atomic_register: Arc<AtomicRegister>) {
     println!("Starting server on port {}", port);
     let listener = TcpListener::bind(format!("127.0.0.1:{}", port)).unwrap();

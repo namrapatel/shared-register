@@ -4,9 +4,9 @@ yk.
 
 jk I'll explain, the goal of the Shared Register implementation is to write a small distributed data structure that lives on `n` number of different nodes, has simple read and write functionality, but it should enable multiple readers and multiple writers at the same time, while maintaining a majority of nodes in sync on the state of the register. More specifically, it must adhere to the following properties:
 
-1. Termination: If a correct (does not crash) process invokes an operation on the atomic register, then the operation eventually completes.
-2. Validity: If a read is not concurrent with any write, the read operation returns the last value written. A read that is concurrent with a write may return either the last value written, or the value being concurrently written.
-3. Ordering: If a read returns a value x1 and a subsequent (possibly concurrent) read returns x2, then the write of x2 does not precede the write of x1.
+1. `Termination`: If a correct (does not crash) process invokes an operation on the atomic register, then the operation eventually completes.
+2. `Validity`: If a read is not concurrent with any write, the read operation returns the last value written. A read that is concurrent with a write may return either the last value written, or the value being concurrently written.
+3. `Ordering`: If a read returns a value x1 and a subsequent (possibly concurrent) read returns x2, then the write of x2 does not precede the write of x1.
     - a. That is, reads impose a constraint on one another. Once any process reads a newly written value no other process may ever read an older value.
     - b. This imposes a total read order on the processes. It is effectively placing a globally enforced commit point on a concurrent write — this commit point is the first concurrent read.
 
@@ -54,10 +54,42 @@ def write_with_quorum(self, value):
 
 ```
 
-### Required improvements
+### Requirement "proofs"
+
+#### Termination
+
+Given that there are three functions in this system, lets prove that each "eventually completes":
+
+1. `write_with_quorum`: This function will always terminate because it has a timeout of 5 seconds. If a majority of nodes do not respond within 5 seconds, then the function will return an error. If a majority of the nodes does respond within 5 seconds, then the function will return an ACK.
+    - Note that if the 5 seconds of time is not enough in situations of extremely network latency or packet loss, a client will know that 5 seconds has passed and can simply make another request to the server (or a different server if they choose), this ensures that the client will eventually be able to write to the register. 
+2. `read`: This function will always terminate because it does not require any communication with other nodes and we do not use any Mutexes anywhere so there is no chance of there being deadlock on any particular piece of state. If the server that the client sent the request to goes down, then the client will timeout and retry the request to a different server. 
+3. `write`: The termination property of this the same as that of the `read` function. 
+
+#### Validity
+
+In order to support the Validity requirement, I avoided using `Mutex` anywhere so as to allow read operations to see the change being made by a concurrent write operation before returning the value. The reason this is possible is because the `Arc` crate lets us share ownership of a value across threads, and the `AtomicPtr` type lets us update the value of the register without using a `Mutex`.
+
+
+On top of that, I wrote a loop in the `read` function that will retry the read operation until it is not concurrent with any write. This ensures that the read operation will always return the last value written. It does this by checking that the value of the register has not changed since it was originally read, and if it has, or is being changed, it will update its value until the value is no longer being changed. Note: To be completely honest I don't know if this loop actually works, I'm personally quite skeptical, I wrote it and meant to test it but I ran out of time. Owing to the facts in the first paragraph of this section, validity holds nonetheless. 
+
+```rust
+    loop {
+        let latest_register = self.register.load(Ordering::SeqCst);
+        if register == latest_register {
+            break;
+        }
+        register = latest_register;
+    }
+```
+
+#### Ordering
+
+The ordering property is supported by the fact that the `write_with_quorum` function will not return until a majority of nodes have acknowledged the write. This means that if a read returns a value x1 and a subsequent (possibly concurrent) read returns x2, then the write of x2 **cannot** not precede the write of x1. This is because the write of x2 will not be acknowledged until the write of x1 has been acknowledged by a majority of nodes. I stole this approach from the RAFT consensus algo.
+
+### Potential code improvements
 
 - Write to `TcpStream` instead of making a HTTP call using `reqwest` in the `write_with_quorum` function for consistencys' sake.
-- Use serde instead of serializing and deserializing manually. I would've done this to begin with but the fact that I used reqwest was making a few nasty errors pop up, so I decided to just do it manually for the time being.
+- Use serde instead of serializing and deserializing manually. I would've done this to begin with but the fact that I used reqwest was making a few nasty errors pop up, so I decided to just do it manually for the time being. It is also important to think about where the serialization should be implemented. Because we wrote a HTTP server to wrap the Shared Register, we have a couple options of where to put the serialization logic in the codebase. 
 - There should be more Types, and there should be more pattern matching in several places to ensure that responses we have receieved were of the correct type and format. Currently, successes and errors are not encoded as types, but rather as strings, making it harder to use Rust's sexy pattern matching.
 
 ### Personal notes
